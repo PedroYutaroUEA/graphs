@@ -2,79 +2,64 @@
 #include <list>
 #include <limits>
 #include <vector>
-#define INF numeric_limits<Weight>::max()
+#define INF numeric_limits<float>::max()
 using namespace std;
 
 typedef unsigned int Vertex, uint;
-typedef float Weight;
+typedef float Weight, Dist;
 
-// dist = soma dos pesos
+// Classe Node
 class Node
 {
 private:
   Vertex value;
   Node *previous;
-  uint dist;
+  Dist dist;
   Weight weight;
 
 public:
-  Node() : value(-1), previous(nullptr), dist(INF) {}
-  Node(Vertex v) : value(v), dist(INF), weight(INF) {}
-  Node(Vertex v, Weight w) : value(v), dist(INF), weight(w) {}
+  Node() : value(-1), previous(nullptr), dist(INF), weight(0) {}
+  Node(Vertex v) : value(v), previous(nullptr), dist(INF), weight(0) {}
+  Node(Vertex v, Weight w) : value(v), previous(nullptr), dist(INF), weight(w) {}
 
   void setValue(Vertex v) { value = v; }
   Vertex getValue() const { return value; }
   void setPrevious(Node *prev) { previous = prev; }
   Node *getPrevious() const { return previous; }
-  void setDist(uint dist) { this->dist = dist; }
-  uint getDist() const { return dist; }
+  void setDist(Dist d) { dist = d; }
+  Dist getDist() const { return dist; }
   void setWeight(Weight w) { weight = w; }
   Weight getWeight() const { return weight; }
   bool operator==(const Node &other) const { return value == other.value; }
 };
 
+// Classe Graph
 class Graph
 {
 private:
-  uint num_vertices, num_edges;
+  uint num_vertices;
   list<Node> *adj;
   vector<Node> nodes;
 
 public:
-  Graph(uint num_vertices) : num_vertices(num_vertices), num_edges(0)
+  Graph(uint num_vertices) : num_vertices(num_vertices)
   {
-    nodes.resize(num_vertices + 1);
-    for (uint i = 0; i < num_vertices + 1; i++)
+    nodes.resize(num_vertices);
+    for (uint i = 0; i < num_vertices; i++)
       nodes[i] = Node(i);
-    adj = new list<Node>[num_vertices + 1];
+    adj = new list<Node>[num_vertices];
   }
 
   ~Graph() { delete[] adj; }
-  uint getNumVertices() const { return num_vertices; }
-  uint getNumEdges() const { return num_edges; }
+
   void addEdge(Vertex u, Vertex v, Weight w)
   {
-    Node Node_v(v, w);
-    adj[u].push_back(Node_v);
-    num_edges++;
+    adj[u].push_back(Node(v, w));
   }
 
-  list<Node> getAdj(Vertex vertex) const
+  list<Node> &getAdj(Vertex vertex)
   {
-    list<Node> v_list;
-    for (const auto &node : adj[vertex])
-    {
-      Node u = node;
-      v_list.push_back(u);
-    }
-    return v_list;
-  }
-
-  void removeEdge(Vertex u, Vertex v)
-  {
-    Node Node_v(v);
-    adj[u].remove(Node_v);
-    num_edges--;
+    return adj[vertex];
   }
 
   Node &getNode(Vertex v)
@@ -82,97 +67,98 @@ public:
     return nodes[v];
   }
 
-  vector<Node> getNodes()
+  vector<Node> &getNodes()
   {
     return nodes;
   }
 
   void showGraph() const
   {
-    cout << "num_vertices: " << num_vertices << endl;
-    cout << "num_edges: " << num_edges << endl;
     for (Vertex v = 0; v < num_vertices; v++)
     {
       cout << v << ": ";
-      list<Node> adj_list = getAdj(v);
-      for (const auto &node : adj_list)
-        cout << "(" << node.getValue() << ", " << node.getWeight() << ")" << ", ";
+      for (const auto &node : adj[v])
+        cout << "(" << node.getValue() << ", " << node.getWeight() << ") ";
       cout << endl;
     }
   }
 };
 
-void initialize(Graph &g, Node &root)
+void initialize(Graph &g, Vertex root)
 {
-  for (Node v : g.getNodes())
+  for (Node &v : g.getNodes())
   {
     v.setDist(INF);
     v.setPrevious(nullptr);
   }
-  root.setDist(0);
+  g.getNode(root).setDist(0);
 }
 
-void relax(Graph &g)
+void relax(Node &u, Node &v, Weight weight)
 {
-  for (uint i = 0; i < g.getNumVertices() - 1; i++)
+  if (v.getDist() > u.getDist() + weight)
   {
-    for (Node v : g.getNodes())
+    v.setDist(u.getDist() + weight);
+    v.setPrevious(&u);
+  }
+}
+
+bool BellmanFord(Graph &g, Vertex root)
+{
+  initialize(g, root);
+  uint num_vertices = g.getNodes().size();
+  for (uint i = 0; i < num_vertices - 1; i++)
+  {
+    for (Vertex u = 0; u < num_vertices; u++)
     {
-      for (Node u : g.getAdj(v.getValue()))
+      Node &uNode = g.getNode(u);
+      for (Node &v : g.getAdj(u))
       {
-        Weight weight = u.getWeight();
-        Vertex u_value = u.getValue();
-        if (v.getDist() > u.getDist() + weight)
-        {
-          v.setDist(u.getDist() + weight);
-          v.setPrevious(&g.getNode(u_value));
-        }
+        Node &vNode = g.getNode(v.getValue());
+        relax(uNode, vNode, v.getWeight());
       }
     }
   }
-}
-
-bool BellmandFord(Graph &g, Node &root)
-{
-  initialize(g, root);
-  relax(g);
-  for (Node v : g.getNodes())
+  for (Vertex u = 0; u < num_vertices; u++)
   {
-    for (Node u : g.getAdj(v.getValue()))
-    {
-      Weight weight = u.getWeight();
-      if (v.getDist() > u.getDist() + weight)
+    Node &uNode = g.getNode(u);
+    for (Node &v : g.getAdj(u))
+      if (g.getNode(v.getValue()).getDist() > uNode.getDist() + v.getWeight())
         return false;
-    }
   }
+
   return true;
 }
 
 int main()
 {
-  // Create the first graph with a negative weight cycle
-  Graph g1(3);
+  Graph g1(6);
   g1.addEdge(0, 1, 1);
   g1.addEdge(1, 2, -2);
-  g1.addEdge(2, 0, -1); // This creates a negative weight cycle
-
-  Node root1(0);
-  if (BellmandFord(g1, root1))
-    cout << "Graph 1: No negative weight cycle detected." << endl;
+  g1.addEdge(2, 3, -1);
+  g1.addEdge(3, 4, 2);
+  g1.addEdge(4, 5, 3);
+  g1.addEdge(5, 0, -1);
+  g1.showGraph();
+  if (BellmanFord(g1, 0))
+    cout << "Grafo 1: Nenhum ciclo de peso negativo detectado." << endl;
   else
-    cout << "Graph 1: Negative weight cycle detected!" << endl;
+    cout << "Grafo 1: Ciclo de peso negativo detectado!" << endl;
 
-  // Create the second graph without a negative weight cycle
-  Graph g2(3);
+  Graph g2(6);
   g2.addEdge(0, 1, 1);
   g2.addEdge(1, 2, 2);
-  g2.addEdge(0, 2, 4); // No negative weight cycle
+  g2.addEdge(2, 3, 3);
+  g2.addEdge(3, 4, 4);
+  g2.addEdge(4, 5, 5);
+  g2.addEdge(0, 5, 6);
+  g2.showGraph();
 
-  Node root2(0);
-  if (BellmandFord(g2, root2))
-    cout << "Graph 2: No negative weight cycle detected." << endl;
+  if (BellmanFord(g2, 0))
+    cout << "Grafo 2: Nenhum ciclo de peso negativo detectado." << endl;
   else
-    cout << "Graph 2: Negative weight cycle detected!" << endl;
+    cout << "Grafo 2: Ciclo de peso negativo detectado!" << endl;
 
+  g2.showGraph();
   return 0;
 }

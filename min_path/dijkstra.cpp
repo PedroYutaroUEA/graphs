@@ -2,131 +2,89 @@
 #include <list>
 #include <limits>
 #include <vector>
-#define INF numeric_limits<Weight>::max()
+#include <queue>
+#define INF numeric_limits<float>::max()
 using namespace std;
 
 typedef unsigned int Vertex, uint;
-typedef float Weight;
+typedef float Weight, Dist;
 
-// dist = soma dos pesos
+// Classe Node
 class Node
 {
 private:
   Vertex value;
   Node *previous;
-  uint dist;
-  Weight weight;
+  Dist dist;
 
 public:
   Node() : value(-1), previous(nullptr), dist(INF) {}
-  Node(Vertex v) : value(v), dist(INF), weight(INF) {}
-  Node(Vertex v, Weight w) : value(v), dist(INF), weight(w) {}
+  Node(Vertex v) : value(v), previous(nullptr), dist(INF) {}
 
   void setValue(Vertex v) { value = v; }
   Vertex getValue() const { return value; }
   void setPrevious(Node *prev) { previous = prev; }
   Node *getPrevious() const { return previous; }
-  void setDist(uint dist) { this->dist = dist; }
-  uint getDist() const { return dist; }
-  void setWeight(Weight w) { weight = w; }
-  Weight getWeight() const { return weight; }
-  bool operator==(const Node &other) const { return value == other.value; }
+  void setDist(Dist d) { dist = d; }
+  Dist getDist() const { return dist; }
+
+  bool operator>(const Node &other) const { return dist > other.dist; }
 };
 
+// Classe Graph
 class Graph
 {
 private:
-  uint num_vertices, num_edges;
-  list<Node> *adj;
-  vector<Node> nodes;
+  uint num_vertices;
+  list<pair<Vertex, Weight>> *adj;
 
 public:
-  Graph(uint num_vertices) : num_vertices(num_vertices), num_edges(0)
+  Graph(uint num_vertices) : num_vertices(num_vertices)
   {
-    nodes.resize(num_vertices + 1);
-    for (uint i = 0; i < num_vertices + 1; i++)
-      nodes[i] = Node(i);
-    adj = new list<Node>[num_vertices + 1];
+    adj = new list<pair<Vertex, Weight>>[num_vertices];
   }
 
   ~Graph() { delete[] adj; }
-  uint getNumVertices() const { return num_vertices; }
-  uint getNumEdges() const { return num_edges; }
+
   void addEdge(Vertex u, Vertex v, Weight w)
   {
-    Node Node_v(v, w);
-    adj[u].push_back(Node_v);
-    num_edges++;
+    adj[u].push_back(make_pair(v, w));
   }
 
-  list<Node> getAdj(Vertex vertex) const
+  const list<pair<Vertex, Weight>> &getAdj(Vertex vertex) const
   {
-    list<Node> v_list;
-    for (const auto &node : adj[vertex])
-    {
-      Node u = node;
-      v_list.push_back(u);
-    }
-    return v_list;
+    return adj[vertex];
   }
 
-  void removeEdge(Vertex u, Vertex v)
+  uint getNumVertices() const
   {
-    Node Node_v(v);
-    adj[u].remove(Node_v);
-    num_edges--;
-  }
-
-  Node &getNode(Vertex v)
-  {
-    return nodes[v];
-  }
-
-  vector<Node> getNodes()
-  {
-    return nodes;
-  }
-
-  void showGraph() const
-  {
-    cout << "num_vertices: " << num_vertices << endl;
-    cout << "num_edges: " << num_edges << endl;
-    for (Vertex v = 0; v < num_vertices; v++)
-    {
-      cout << v << ": ";
-      list<Node> adj_list = getAdj(v);
-      for (const auto &node : adj_list)
-        cout << "(" << node.getValue() << ", " << node.getWeight() << ")" << ", ";
-      cout << endl;
-    }
+    return num_vertices;
   }
 };
 
-void initialize(Graph &g, Node &root)
+void dijkstra(const Graph &g, Vertex root, vector<Dist> &distances, vector<Vertex> &previous)
 {
-  for (Node v : g.getNodes())
-  {
-    v.setDist(INF);
-    v.setPrevious(nullptr);
-  }
-  root.setDist(0);
-}
+  uint num_vertices = g.getNumVertices();
+  distances.assign(num_vertices, INF);
+  previous.assign(num_vertices, -1);
 
-void relax(Graph &g)
-{
-  for (uint i = 0; i < g.getNumVertices() - 1; i++)
+  // Usar uma fila de prioridade para selecionar o nó com a menor distância
+  priority_queue<pair<Dist, Vertex>, vector<pair<Dist, Vertex>>, greater<>> pq;
+  distances[root] = 0;
+  pq.push(make_pair(0, root));
+
+  while (!pq.empty())
   {
-    for (Node v : g.getNodes())
+    Vertex u = pq.top().second;
+    pq.pop();
+
+    for (const auto &[v, weight] : g.getAdj(u))
     {
-      for (Node u : g.getAdj(v.getValue()))
+      if (distances[v] > distances[u] + weight)
       {
-        Weight weight = u.getWeight();
-        Vertex u_value = u.getValue();
-        if (v.getDist() > u.getDist() + weight)
-        {
-          v.setDist(u.getDist() + weight);
-          v.setPrevious(&g.getNode(u_value));
-        }
+        distances[v] = distances[u] + weight;
+        previous[v] = u;
+        pq.push(make_pair(distances[v], v));
       }
     }
   }
@@ -134,4 +92,34 @@ void relax(Graph &g)
 
 int main()
 {
+  Graph graph(9);
+  graph.addEdge(0, 1, 4.0);
+  graph.addEdge(0, 7, 8.0);
+  graph.addEdge(1, 2, 8.0);
+  graph.addEdge(1, 7, 11.0);
+  graph.addEdge(2, 3, 7.0);
+  graph.addEdge(2, 8, 2.0);
+  graph.addEdge(2, 5, 4.0);
+  graph.addEdge(3, 4, 9.0);
+  graph.addEdge(3, 5, 14.0);
+  graph.addEdge(4, 5, 10.0);
+  graph.addEdge(5, 6, 2.0);
+  graph.addEdge(6, 7, 1.0);
+  graph.addEdge(6, 8, 6.0);
+  graph.addEdge(7, 8, 7.0);
+
+  vector<Dist> distances;
+  vector<Vertex> previous;
+  dijkstra(graph, 0, distances, previous);
+
+  cout << "Minimum Path Tree from Node 0:" << endl;
+  for (Vertex v = 0; v < graph.getNumVertices(); ++v)
+  {
+    cout << "Node " << v << " with distance " << distances[v];
+    if (previous[v] != -1)
+      cout << " (previous: " << previous[v] << ")";
+    cout << endl;
+  }
+
+  return 0;
 }
